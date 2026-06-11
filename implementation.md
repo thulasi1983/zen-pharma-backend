@@ -45,6 +45,57 @@ Follow these steps **in order**. Each step depends on the previous one being com
 
 ---
 
+## Step 1b — Personalise zen-gitops for your AWS account
+
+> Do this **before** running the bootstrap scripts. ArgoCD will start syncing `zen-gitops` immediately after Step 2, so image URLs and DB endpoints must point to your account first.
+
+The `envs/dev/*.yaml` files are pre-populated with the instructor's AWS account ID and RDS instance identifier. Leave them as-is and ArgoCD will produce `ImagePullBackOff` errors because it tries to pull images from an ECR registry you don't own.
+
+### 1. Replace the AWS account ID
+
+Every `image.repository` and the IAM role ARN in `values-api-gateway.yaml` contain the placeholder account ID. Replace it with yours (from Step 1 logs or):
+
+```bash
+aws sts get-caller-identity --query Account --output text
+```
+
+Run from the root of your forked `zen-gitops` repo:
+
+```bash
+# macOS/BSD sed (note the '' after -i)
+find envs/ -name "*.yaml" -exec sed -i '' 's/516209541629/YOUR_AWS_ACCOUNT_ID/g' {} +
+
+# Linux sed
+find envs/ -name "*.yaml" -exec sed -i 's/516209541629/YOUR_AWS_ACCOUNT_ID/g' {} +
+```
+
+### 2. Replace the RDS instance identifier
+
+Every `DB_HOST` env var contains the instructor's RDS instance identifier. Find yours in **AWS Console → RDS → Databases → your instance → Endpoint** — it is the subdomain prefix before `.us-east-1.rds.amazonaws.com`.
+
+```bash
+# macOS/BSD sed
+find envs/ -name "*.yaml" -exec sed -i '' 's/cyrywaguk6v4/YOUR_RDS_ID/g' {} +
+
+# Linux sed
+find envs/ -name "*.yaml" -exec sed -i 's/cyrywaguk6v4/YOUR_RDS_ID/g' {} +
+```
+
+### 3. Verify and push
+
+```bash
+# Should return no output (no instructor values left)
+grep -r "516209541629\|cyrywaguk6v4" envs/
+
+git add envs/
+git commit -m "chore(envs/dev): replace instructor account ID and RDS endpoint"
+git push
+```
+
+Once pushed, CI will overwrite image tags with your ECR images on every build and ArgoCD syncs will succeed.
+
+---
+
 ## Step 2 — Run the bootstrap scripts (zen-infra/scripts/)
 
 Run these four scripts **in order** from your local machine after the Terraform apply completes. Each script prompts for required values — nothing is hardcoded.
